@@ -11,6 +11,8 @@ library(stargazer)
 
 rm(list = ls())
 
+time = proc.time()
+
 source("src/bekker_se.R")
 
 hhn <- read.dta13("data/hhn.dta")
@@ -168,4 +170,34 @@ time_parallel <- system.time({
 })
 stopCluster(cl)
 
+cat("Time used for processing:", time_parallel[3], "seconds. \n")
 
+# Retrieve S1 estimates
+tsls_est_s1 = c(liml_bekker[seq(from = 1, to = num_datasets*15, by = 15)])
+tsls_se_s1 = c(liml_bekker[seq(from = 2, to = num_datasets*15, by = 15)])
+liml_est_s1 = c(liml_bekker[seq(from = 3, to = num_datasets*15, by = 15)])
+liml_se_s1 = c(liml_bekker[seq(from = 4, to = num_datasets*15, by = 15)])
+bekker_s1 = c(liml_bekker[seq(from = 5, to = num_datasets*15, by = 15)])
+
+# Retrieve S2 estimates
+tsls_est_s2 = c(liml_bekker[seq(from = 6, to = num_datasets*15, by = 15)])
+tsls_se_s2 = c(liml_bekker[seq(from = 7, to = num_datasets*15, by = 15)])
+liml_est_s2 = c(liml_bekker[seq(from = 8, to = num_datasets*15, by = 15)])
+liml_se_s2 = c(liml_bekker[seq(from = 9, to = num_datasets*15, by = 15)])
+bekker_s2 = c(liml_bekker[seq(from = 10, to = num_datasets*15, by = 15)])
+
+# Retrieve S3 estimates
+tsls_est_s3 = c(liml_bekker[seq(from = 11, to = num_datasets*15, by = 15)])
+tsls_se_s3 = c(liml_bekker[seq(from = 12, to = num_datasets*15, by = 15)])
+liml_est_s3 = c(liml_bekker[seq(from = 13, to = num_datasets*15, by = 15)])
+liml_se_s3 = c(liml_bekker[seq(from = 14, to = num_datasets*15, by = 15)])
+bekker_s3 = c(liml_bekker[seq(from = 15, to = num_datasets*15, by = 15)])
+
+
+simulated_estimates <- cbind(tsls_est_s1, tsls_se_s1, liml_est_s1, liml_se_s1, bekker_s1,
+                             tsls_est_s2, tsls_se_s2, liml_est_s2, liml_se_s3, bekker_s2,
+                             tsls_est_s3, tsls_se_s3, liml_est_s3, liml_se_s3, bekker_s3)
+
+write.csv(simulated_estimates, file = "out/sim_ests.csv")
+
+cat("All done! :) \n", "Total analysis time:", (proc.time() - time)[3], " seconds. \n")
