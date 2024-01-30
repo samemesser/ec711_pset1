@@ -89,7 +89,7 @@ b_ = as.matrix(c(b0, b2, b1))
 # instruments and controls
 # Pis
 mod_x <- lm(educ ~ hhn_clean$MARRIED + hhn_clean$RACE + hhn_clean$SMSA
-            + hhn_clean$QOB2 + hhn_clean$QOB3 + hhn_clean$QOB4)
+            + hhn_clean$QOB1 + hhn_clean$QOB2 + hhn_clean$QOB3)
 p_ = as.matrix(mod_x$coefficients)
 
 # Errors
@@ -100,7 +100,7 @@ sig_u = sd(u_)
 
 #V
 Z_ = cbind(1, hhn_clean$MARRIED, hhn_clean$RACE, hhn_clean$SMSA,
-           hhn_clean$QOB2, hhn_clean$QOB3, hhn_clean$QOB4)
+           hhn_clean$QOB1, hhn_clean$QOB2, hhn_clean$QOB3)
 v_ = educ - Z_ %*%  p_
 sig_v = sd(v_)
 
