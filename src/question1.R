@@ -31,8 +31,8 @@ hhn_all_inst <- hhn_full[,-cols_to_remove]
 hhn_clean <- hhn_all_inst[,c(1:2, 6, 3:5, 7:186)]
 
 # Write subset of the file so we can skip time consuming steps when we parallelize
-hhn_export <- hhn_clean[,c(3:186)]
-fwrite(hhn_export, file = "intermediate_data/hhn_export.csv")
+#hhn_export <- hhn_clean[,c(3:186)]
+#fwrite(hhn_export, file = "intermediate_data/hhn_export.csv")
 
 # Remove extraneous datasets
 rm(hhn, hhn_all_inst, hhn_factors, hhn_full, interacts, hhn_export, cols_to_remove)
@@ -108,22 +108,22 @@ fwrite(list(b_), file = "intermediate_data/betas.txt")
 fwrite(list(p_), file = "intermediate_data/pis.txt")
 fwrite(list(sigma_hhn), file = "intermediate_data/sigma_hhn.txt")
 
-num_datasets = 3
+num_datasets = 1000
 
 ncore <- detectCores()
-cl <- makeCluster(3, type = "PSOCK") #ncore - 1 usually
+cl <- makeCluster(10, type = "PSOCK") #ncore - 1 usually
 registerDoParallel(cl)
 
-# Usually should get this from random.org or similar, but not trying to publish this, so 711 is fine
-set.seed(711)
+# From random.org
+set.seed(191116266)
 time_parallel <- system.time({
   liml_bekker <- foreach(i = 1:num_datasets
              , .combine = 'c'
              , .packages = c("ivmodel", "mvtnorm", "data.table")
              ) %dorng% {
-               
+
                cat("Currently processing dataset", i, "\n")
-               
+
                source("src/bekker_se.R")
                hhn_export <- fread("intermediate_data/hhn_export.csv")
                betas <- as.matrix(fread("intermediate_data/betas.txt"))
@@ -132,30 +132,30 @@ time_parallel <- system.time({
 
                data_length = 329509
                errors = rmvnorm(data_length, sigma = sigma_hhn)
-               
+
                Z_ = as.matrix(hhn_export[,1:7])
-               
+
                X_fit = Z_ %*% pis + errors[,2]
-               
+
                X_ = as.matrix(cbind(hhn_export[,1:4], X_fit))
-               
+
                Y_fit = X_ %*% betas + errors[,1]
-               
+
                # Name columns
-               colnames(X_fit)[1] = "D" 
+               colnames(X_fit)[1] = "D"
                colnames(Y_fit)[1] = "Y"
-               
+
                controls <- hhn_export[,1:4]
-               
+
                # Different instrument specifications
                instr_s1 <- hhn_export[,5:7] # QOB only
                instr_s2 <- hhn_export[,5:34] # QOB + QOB*YOB
                instr_s3 <- hhn_export[,5:184] # QOB + QOB*YOB + QOB*STATE
-               
+
                mod_s1 <- ivmodel(Y=Y_fit, D=X_fit, Z=instr_s1, X=controls, intercept = FALSE)
                mod_s2 <- ivmodel(Y=Y_fit, D=X_fit, Z=instr_s2, X=controls, intercept = FALSE)
                mod_s3 <- ivmodel(Y=Y_fit, D=X_fit, Z=instr_s3, X=controls, intercept = FALSE)
-               
+
                tsls_est = c(coef(mod_s1)["TSLS","Estimate"], coef(mod_s2)["TSLS","Estimate"], coef(mod_s3)["TSLS","Estimate"])
                tsls_se = c(coef(mod_s1)["TSLS","Std. Error"], coef(mod_s2)["TSLS","Std. Error"], coef(mod_s3)["TSLS","Std. Error"])
                liml_est = c(coef(mod_s1)["LIML","Estimate"], coef(mod_s2)["LIML","Estimate"], coef(mod_s3)["LIML","Estimate"])
@@ -164,7 +164,7 @@ time_parallel <- system.time({
 
                out = rbind(tsls_est, tsls_se, liml_est, liml_se, bekker)
                colnames(out) = c("S1", "S2", "S3")
-               
+
                out
   }
 })
@@ -198,6 +198,35 @@ simulated_estimates <- cbind(tsls_est_s1, tsls_se_s1, liml_est_s1, liml_se_s1, b
                              tsls_est_s2, tsls_se_s2, liml_est_s2, liml_se_s3, bekker_s2,
                              tsls_est_s3, tsls_se_s3, liml_est_s3, liml_se_s3, bekker_s3)
 
-write.csv(simulated_estimates, file = "out/sim_ests.csv")
+write.csv(simulated_estimates, file = "intermediate_data/sim_ests.csv")
 
 cat("All done! :) \n", "Total analysis time:", (proc.time() - time)[3], " seconds. \n")
+
+#####
+# Assume all prior was run on cluster, need to load data here!
+sim_est <- read.csv("intermediate_data/sim_ests.csv")[,-1]
+true_beta <- b1
+
+sim_errors <- sim_est[,c(1, 3, 6, 8, 11, 13)] - true_beta
+
+squared_errors <- sim_errors^2
+
+ci_coverage <- between(0, sim_errors[,c(1:6, 2, 4, 6)] - qnorm(0.975)*sim_est[,c(2, 4, 7, 9, 12, 14, 5, 10, 15)],
+                          sim_errors[,c(1:6, 2, 4, 6)] + qnorm(0.975)*sim_est[,c(2, 4, 7, 9, 12, 14, 5, 10, 15)]
+)
+
+bias <- c(mean(sim_errors[,1]), mean(sim_errors[,2]), NA, mean(sim_errors[,3]),
+          mean(sim_errors[,4]), NA, mean(sim_errors[,5]), mean(sim_errors[,6]), NA)
+rmse <- c(sqrt(mean(squared_errors[,1])), sqrt(mean(squared_errors[,2])), NA,
+          sqrt(mean(squared_errors[,3])), sqrt(mean(squared_errors[,4])), NA,
+          sqrt(mean(squared_errors[,5])), sqrt(mean(squared_errors[,6])), NA)
+cove <- c(mean(ci_coverage[,1]), mean(ci_coverage[,2]), mean(ci_coverage[,7]),
+          mean(ci_coverage[,3]), mean(ci_coverage[,4]), mean(ci_coverage[,8]),
+          mean(ci_coverage[,5]), mean(ci_coverage[,6]), mean(ci_coverage[,9]))
+
+results_out <- cbind(bias, rmse, cove)
+rownames(results_out) <-  c("tsls_s1", "liml_s1", "bekker_s1",
+                            "tsls_s2", "liml_s2", "bekker_s2",
+                            "tsls_s3", "liml_s3", "bekker_s3") 
+write.csv("out/simulation_results.csv")
+
