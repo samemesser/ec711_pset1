@@ -20,13 +20,19 @@ hhn <- read.dta13("data/hhn.dta")
 hhn_factors <- hhn %>%
   mutate(QOB = as.factor(QOB), STATE = as.factor(STATE), YOB = as.factor(YOB))
 
+
+# Suppose instead we take last of every group to be excluded
+hhn_factors$QOB <- relevel(hhn_factors$QOB, ref = tail(levels(hhn_factors$QOB), 1))
+hhn_factors$YOB <- relevel(hhn_factors$YOB, ref = tail(levels(hhn_factors$YOB), 1))
+hhn_factors$STATE <- relevel(hhn_factors$STATE, ref = tail(levels(hhn_factors$STATE), 1))
+
 # This generates all of the interaction columns
 interacts <- model.matrix(~ QOB + QOB:YOB + QOB:STATE, data = hhn_factors)
 
 hhn_full <- cbind(hhn_factors, interacts)
 
 # QOB1 is the excluded group, so we want it removed everywhere
-cols_to_remove <- c(grep("QOB1", colnames(hhn_full)), 4, 7, 8)
+cols_to_remove <- c(grep("QOB4", colnames(hhn_full)), 4, 7, 8)
 hhn_all_inst <- hhn_full[,-cols_to_remove]
 hhn_clean <- hhn_all_inst[,c(1:2, 6, 3:5, 7:186)]
 
@@ -66,7 +72,7 @@ bekker = c(bekker_se(mod_s1, wage, educ, instr_s1, controls), bekker_se(mod_s2, 
 base_results = rbind(tsls_est, tsls_se, liml_est, liml_se, bekker)
 colnames(base_results) = c("S1", "S2", "S3")
 
-stargazer(base_results, out = "out/results_original_sample.tex")
+stargazer(base_results, out = "out/results_last_excluded.tex")
 
 
 ######### Part (b)
@@ -83,7 +89,7 @@ b_ = as.matrix(c(b0, b2, b1))
 # instruments and controls
 # Pis
 mod_x <- lm(educ ~ hhn_clean$MARRIED + hhn_clean$RACE + hhn_clean$SMSA
-            + hhn_clean$QOB2 + hhn_clean$QOB3 + hhn_clean$QOB4)
+            + hhn_clean$QOB1 + hhn_clean$QOB2 + hhn_clean$QOB3)
 p_ = as.matrix(mod_x$coefficients)
 
 # Errors
@@ -94,7 +100,7 @@ sig_u = sd(u_)
 
 #V
 Z_ = cbind(1, hhn_clean$MARRIED, hhn_clean$RACE, hhn_clean$SMSA,
-           hhn_clean$QOB2, hhn_clean$QOB3, hhn_clean$QOB4)
+           hhn_clean$QOB1, hhn_clean$QOB2, hhn_clean$QOB3)
 v_ = educ - Z_ %*%  p_
 sig_v = sd(v_)
 
@@ -228,5 +234,5 @@ results_out <- cbind(bias, rmse, cove)
 rownames(results_out) <-  c("tsls_s1", "liml_s1", "bekker_s1",
                             "tsls_s2", "liml_s2", "bekker_s2",
                             "tsls_s3", "liml_s3", "bekker_s3") 
-write.csv("out/simulation_results.csv")
+write.csv(results_out, "out/simulation_results_qob4.csv")
 

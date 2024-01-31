@@ -234,5 +234,5 @@ results_out <- cbind(bias, rmse, cove)
 rownames(results_out) <-  c("tsls_s1", "liml_s1", "bekker_s1",
                             "tsls_s2", "liml_s2", "bekker_s2",
                             "tsls_s3", "liml_s3", "bekker_s3") 
-write.csv(results_out, "out/simulation_results.csv")
+write.csv(results_out, "out/simulation_results_qob4.csv")
 
