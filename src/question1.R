@@ -124,7 +124,7 @@ registerDoParallel(cl)
 set.seed(191116266)
 time_parallel <- system.time({
   liml_bekker <- foreach(i = 1:num_datasets
-             , .combine = 'c'
+             , .combine = 'rbind'
              , .packages = c("ivmodel", "mvtnorm", "data.table")
              ) %dorng% {
 
@@ -161,15 +161,24 @@ time_parallel <- system.time({
                mod_s1 <- ivmodel(Y=Y_fit, D=X_fit, Z=instr_s1, X=controls, intercept = FALSE)
                mod_s2 <- ivmodel(Y=Y_fit, D=X_fit, Z=instr_s2, X=controls, intercept = FALSE)
                mod_s3 <- ivmodel(Y=Y_fit, D=X_fit, Z=instr_s3, X=controls, intercept = FALSE)
-
-               tsls_est = c(coef(mod_s1)["TSLS","Estimate"], coef(mod_s2)["TSLS","Estimate"], coef(mod_s3)["TSLS","Estimate"])
-               tsls_se = c(coef(mod_s1)["TSLS","Std. Error"], coef(mod_s2)["TSLS","Std. Error"], coef(mod_s3)["TSLS","Std. Error"])
-               liml_est = c(coef(mod_s1)["LIML","Estimate"], coef(mod_s2)["LIML","Estimate"], coef(mod_s3)["LIML","Estimate"])
-               liml_se = c(coef(mod_s1)["LIML","Std. Error"], coef(mod_s2)["LIML","Std. Error"], coef(mod_s3)["LIML","Std. Error"])
-               bekker = c(bekker_se(mod_s1, Y_fit, X_fit, instr_s1, controls), bekker_se(mod_s2, Y_fit, X_fit, instr_s2, controls), bekker_se(mod_s3, Y_fit, X_fit, instr_s3, controls))
-
-               out = rbind(tsls_est, tsls_se, liml_est, liml_se, bekker)
-               colnames(out) = c("S1", "S2", "S3")
+        
+               tsls_est_s1 = coef(mod_s1)["TSLS","Estimate"]
+               tsls_est_s2 = coef(mod_s2)["TSLS","Estimate"]
+               tsls_est_s3 = coef(mod_s3)["TSLS","Estimate"]
+               tsls_se_s1 = coef(mod_s1)["TSLS","Std. Error"]
+               tsls_se_s2 = coef(mod_s2)["TSLS","Std. Error"]
+               tsls_se_s3 = coef(mod_s3)["TSLS","Std. Error"]
+               liml_est_s1 = coef(mod_s1)["LIML","Estimate"]
+               liml_est_s2 = coef(mod_s2)["LIML","Estimate"]
+               liml_est_s3 = coef(mod_s3)["LIML","Estimate"]
+               liml_se_s1 = coef(mod_s1)["LIML","Std. Error"]
+               liml_se_s2 = coef(mod_s2)["LIML","Std. Error"]
+               liml_se_s3 = coef(mod_s3)["LIML","Std. Error"]
+               bekker_s1 = bekker_se(mod_s1, Y_fit, X_fit, instr_s1, controls)
+               bekker_s2 = bekker_se(mod_s2, Y_fit, X_fit, instr_s2, controls)
+               bekker_s3 = bekker_se(mod_s3, Y_fit, X_fit, instr_s3, controls)
+               
+               out = c(tsls_est_s1, tsls_se_s1, liml_est_s1, liml_se_s1, bekker_s1, tsls_est_s2, tsls_se_s2, liml_est_s2, liml_se_s3, bekker_s2, tsls_est_s3, tsls_se_s3, liml_est_s3, liml_se_s3, bekker_s3)
 
                out
   }
@@ -178,31 +187,8 @@ stopCluster(cl)
 
 cat("Time used for processing:", time_parallel[3], "seconds. \n")
 
-# Retrieve S1 estimates
-tsls_est_s1 = c(liml_bekker[seq(from = 1, to = num_datasets*15, by = 15)])
-tsls_se_s1 = c(liml_bekker[seq(from = 2, to = num_datasets*15, by = 15)])
-liml_est_s1 = c(liml_bekker[seq(from = 3, to = num_datasets*15, by = 15)])
-liml_se_s1 = c(liml_bekker[seq(from = 4, to = num_datasets*15, by = 15)])
-bekker_s1 = c(liml_bekker[seq(from = 5, to = num_datasets*15, by = 15)])
-
-# Retrieve S2 estimates
-tsls_est_s2 = c(liml_bekker[seq(from = 6, to = num_datasets*15, by = 15)])
-tsls_se_s2 = c(liml_bekker[seq(from = 7, to = num_datasets*15, by = 15)])
-liml_est_s2 = c(liml_bekker[seq(from = 8, to = num_datasets*15, by = 15)])
-liml_se_s2 = c(liml_bekker[seq(from = 9, to = num_datasets*15, by = 15)])
-bekker_s2 = c(liml_bekker[seq(from = 10, to = num_datasets*15, by = 15)])
-
-# Retrieve S3 estimates
-tsls_est_s3 = c(liml_bekker[seq(from = 11, to = num_datasets*15, by = 15)])
-tsls_se_s3 = c(liml_bekker[seq(from = 12, to = num_datasets*15, by = 15)])
-liml_est_s3 = c(liml_bekker[seq(from = 13, to = num_datasets*15, by = 15)])
-liml_se_s3 = c(liml_bekker[seq(from = 14, to = num_datasets*15, by = 15)])
-bekker_s3 = c(liml_bekker[seq(from = 15, to = num_datasets*15, by = 15)])
-
-
-simulated_estimates <- cbind(tsls_est_s1, tsls_se_s1, liml_est_s1, liml_se_s1, bekker_s1,
-                             tsls_est_s2, tsls_se_s2, liml_est_s2, liml_se_s3, bekker_s2,
-                             tsls_est_s3, tsls_se_s3, liml_est_s3, liml_se_s3, bekker_s3)
+simulated_estimates <- as.data.frame(liml_bekker)
+colnames(simulated_estimates) <- c("tsls_est_s1", "tsls_se_s1", "liml_est_s1", "liml_se_s1", "bekker_s1", "tsls_est_s2", "tsls_se_s2", "liml_est_s2", "liml_se_s3", "bekker_s2", "tsls_est_s3", "tsls_se_s3", "liml_est_s3", "liml_se_s3", "bekker_s3")
 
 write.csv(simulated_estimates, file = "intermediate_data/sim_ests.csv")
 
@@ -210,29 +196,29 @@ cat("All done! :) \n", "Total analysis time:", (proc.time() - time)[3], " second
 
 #####
 # Assume all prior was run on cluster, need to load data here!
-sim_est <- read.csv("intermediate_data/sim_ests.csv")[,-1]
-true_beta <- b1
+#sim_est <- read.csv("intermediate_data/sim_ests.csv")
+#true_beta <- b1
 
-sim_errors <- sim_est[,c(1, 3, 6, 8, 11, 13)] - true_beta
+#sim_errors <- sim_est[,c(1, 3, 6, 8, 11, 13)] - true_beta
 
-squared_errors <- sim_errors^2
+#squared_errors <- sim_errors^2
 
-ci_coverage <- between(0, sim_errors[,c(1:6, 2, 4, 6)] - qnorm(0.975)*sim_est[,c(2, 4, 7, 9, 12, 14, 5, 10, 15)],
-                          sim_errors[,c(1:6, 2, 4, 6)] + qnorm(0.975)*sim_est[,c(2, 4, 7, 9, 12, 14, 5, 10, 15)]
-)
+#ci_coverage <- between(0, sim_errors[,c(1:6, 2, 4, 6)] - qnorm(0.975)*sim_est[,c(2, 4, 7, 9, 12, 14, 5, 10, 15)],
+#                          sim_errors[,c(1:6, 2, 4, 6)] + qnorm(0.975)*sim_est[,c(2, 4, 7, 9, 12, 14, 5, 10, 15)]
+#)
 
-bias <- c(mean(sim_errors[,1]), mean(sim_errors[,2]), NA, mean(sim_errors[,3]),
-          mean(sim_errors[,4]), NA, mean(sim_errors[,5]), mean(sim_errors[,6]), NA)
-rmse <- c(sqrt(mean(squared_errors[,1])), sqrt(mean(squared_errors[,2])), NA,
-          sqrt(mean(squared_errors[,3])), sqrt(mean(squared_errors[,4])), NA,
-          sqrt(mean(squared_errors[,5])), sqrt(mean(squared_errors[,6])), NA)
-cove <- c(mean(ci_coverage[,1]), mean(ci_coverage[,2]), mean(ci_coverage[,7]),
-          mean(ci_coverage[,3]), mean(ci_coverage[,4]), mean(ci_coverage[,8]),
-          mean(ci_coverage[,5]), mean(ci_coverage[,6]), mean(ci_coverage[,9]))
+#bias <- c(mean(sim_errors[,1]), mean(sim_errors[,2]), NA, mean(sim_errors[,3]),
+#          mean(sim_errors[,4]), NA, mean(sim_errors[,5]), mean(sim_errors[,6]), NA)
+#rmse <- c(sqrt(mean(squared_errors[,1])), sqrt(mean(squared_errors[,2])), NA,
+#          sqrt(mean(squared_errors[,3])), sqrt(mean(squared_errors[,4])), NA,
+#          sqrt(mean(squared_errors[,5])), sqrt(mean(squared_errors[,6])), NA)
+#cove <- c(mean(ci_coverage[,1]), mean(ci_coverage[,2]), mean(ci_coverage[,7]),
+#          mean(ci_coverage[,3]), mean(ci_coverage[,4]), mean(ci_coverage[,8]),
+#          mean(ci_coverage[,5]), mean(ci_coverage[,6]), mean(ci_coverage[,9]))
 
-results_out <- cbind(bias, rmse, cove)
-rownames(results_out) <-  c("tsls_s1", "liml_s1", "bekker_s1",
-                            "tsls_s2", "liml_s2", "bekker_s2",
-                            "tsls_s3", "liml_s3", "bekker_s3") 
-write.csv(results_out, "out/simulation_results_qob4.csv")
+#results_out <- cbind(bias, rmse, cove)
+#rownames(results_out) <-  c("tsls_s1", "liml_s1", "bekker_s1",
+#                            "tsls_s2", "liml_s2", "bekker_s2",
+#                            "tsls_s3", "liml_s3", "bekker_s3") 
+#write.csv(results_out, "out/simulation_results_qob4.csv")
 
