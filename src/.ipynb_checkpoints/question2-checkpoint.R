@@ -156,7 +156,6 @@ ggsave("out/wa_approximations.png")
 
 ggplot(simulation_data) +
   stat_function(fun = dnorm, args = list(mean = 0, sd = 2), aes(color = "Analytical")) +
-  geom_density(aes(x = normal_data, color = "Data Approach")) +
   geom_density(aes(x = normal_med, color = "Median Approach")) +
   scale_x_continuous(name = "Normal Approximations", limits = c(-6, 6)) +
   scale_y_continuous(name = "") +
