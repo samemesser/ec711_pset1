@@ -196,29 +196,31 @@ cat("All done! :) \n", "Total analysis time:", (proc.time() - time)[3], " second
 
 #####
 # Assume all prior was run on cluster, need to load data here!
-#sim_est <- read.csv("intermediate_data/sim_ests.csv")
-#true_beta <- b1
+sim_est <- read.csv("intermediate_data/sim_ests.csv")
+true_beta <- b1
 
-#sim_errors <- sim_est[,c(1, 3, 6, 8, 11, 13)] - true_beta
+sim_errors <- sim_est[,c(1, 3, 6, 8, 11, 13)] - true_beta
 
-#squared_errors <- sim_errors^2
+squared_errors <- sim_errors^2
 
-#ci_coverage <- between(0, sim_errors[,c(1:6, 2, 4, 6)] - qnorm(0.975)*sim_est[,c(2, 4, 7, 9, 12, 14, 5, 10, 15)],
-#                          sim_errors[,c(1:6, 2, 4, 6)] + qnorm(0.975)*sim_est[,c(2, 4, 7, 9, 12, 14, 5, 10, 15)]
-#)
+ci_coverage <- between(0, sim_errors[,c(1:6, 2, 4, 6)] - qnorm(0.975)*sim_est[,c(2, 4, 7, 9, 12, 14, 5, 10, 15)],
+                          sim_errors[,c(1:6, 2, 4, 6)] + qnorm(0.975)*sim_est[,c(2, 4, 7, 9, 12, 14, 5, 10, 15)]
+)
 
-#bias <- c(mean(sim_errors[,1]), mean(sim_errors[,2]), NA, mean(sim_errors[,3]),
-#          mean(sim_errors[,4]), NA, mean(sim_errors[,5]), mean(sim_errors[,6]), NA)
-#rmse <- c(sqrt(mean(squared_errors[,1])), sqrt(mean(squared_errors[,2])), NA,
-#          sqrt(mean(squared_errors[,3])), sqrt(mean(squared_errors[,4])), NA,
-#          sqrt(mean(squared_errors[,5])), sqrt(mean(squared_errors[,6])), NA)
-#cove <- c(mean(ci_coverage[,1]), mean(ci_coverage[,2]), mean(ci_coverage[,7]),
-#          mean(ci_coverage[,3]), mean(ci_coverage[,4]), mean(ci_coverage[,8]),
-#          mean(ci_coverage[,5]), mean(ci_coverage[,6]), mean(ci_coverage[,9]))
+bias <- c(mean(sim_errors[,1]), mean(sim_errors[,2]), NA, mean(sim_errors[,3]),
+          mean(sim_errors[,4]), NA, mean(sim_errors[,5]), mean(sim_errors[,6]), NA)
+rmse <- c(sqrt(mean(squared_errors[,1])), sqrt(mean(squared_errors[,2])), NA,
+          sqrt(mean(squared_errors[,3])), sqrt(mean(squared_errors[,4])), NA,
+          sqrt(mean(squared_errors[,5])), sqrt(mean(squared_errors[,6])), NA)
+cove <- c(mean(ci_coverage[,1]), mean(ci_coverage[,2]), mean(ci_coverage[,7]),
+          mean(ci_coverage[,3]), mean(ci_coverage[,4]), mean(ci_coverage[,8]),
+          mean(ci_coverage[,5]), mean(ci_coverage[,6]), mean(ci_coverage[,9]))
 
-#results_out <- cbind(bias, rmse, cove)
-#rownames(results_out) <-  c("tsls_s1", "liml_s1", "bekker_s1",
-#                            "tsls_s2", "liml_s2", "bekker_s2",
-#                            "tsls_s3", "liml_s3", "bekker_s3") 
-#write.csv(results_out, "out/simulation_results_qob4.csv")
+results_out <- cbind(bias, rmse, cove)
+rownames(results_out) <-  c("tsls_s1", "liml_s1", "bekker_s1",
+                            "tsls_s2", "liml_s2", "bekker_s2",
+                            "tsls_s3", "liml_s3", "bekker_s3")
+
+stargazer(results_out, out = "out/simulation_est.tex")
+write.csv(results_out, "out/simulation_results_qob4.csv")
 
