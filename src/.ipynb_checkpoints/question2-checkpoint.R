@@ -94,7 +94,7 @@ colnames(simulation_data) <- c("b_tsls", "b_liml", "var_x", "var_u", "rsq", "var
 simu_norm_var = mean(simulation_data$var_u) / (mean(simulation_data$var_x) * mean(simulation_data$rsq))
 # But, we have to shrink by dividing by sqrt(n), which divides variance by n
 simu_asym_var = simu_norm_var / 100
-simulation_data$normal_data = rnorm(n_sims, 0, simu_asym_var)
+simulation_data$normal_data = rnorm(n_sims, 0, simu_norm_var)
 
 # Second, consider standard errors from fitting TSLS model
 simulation_data$normal_med = rnorm(n_sims, 0, median(simulation_data$tsls_se))
@@ -163,6 +163,6 @@ ggplot(simulation_data) +
   #scale_color_manual(values = c("green", "blue", "red"), labels = c("Data Approach", "Analytical Approach", "Median Approach")) +
   theme_light() +
   theme(legend.position = "bottom", legend.title = element_blank())
-ggsave("out/normal_approximations.png")
+ggsave("out/normal_approximations_update.png")
 
 
