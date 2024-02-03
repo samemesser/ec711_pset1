@@ -1,68 +1,85 @@
 #### Question 3
+library(ggplot2)
+library(ivreg)
 
+# Read in data
+ajr <- read.table("data/ajr.txt", header = T)
 
-data_ajr = read.table('ajr.txt', header=TRUE)
+# OLS model
+OLS_mod = lm(GDP ~ Exprop + Latitude, data = ajr)
 
-#1. Estimate the effect of institutions X on log GDP per capita Y 
-#   controlling for distance from the equator W by OLS
-OLS_ajr <- lm(data_ajr$GDP ~ data_ajr$Exprop + data_ajr$Latitude)
-#store estimate and SE 
-OLS_beta <- summary(OLS_ajr)$coefficients[2,1]
-OLS_se <- summary(OLS_ajr)$coefficients[2,2]
+# store estimates 
+OLS_beta = summary(OLS_mod)$coefficients[2,1]
+OLS_se = summary(OLS_mod)$coefficients[2,2]
 
-#Estimate the effect by 2SLS using settler mortality as an instrument.
-twosls_ajr_1_1 <- ivreg(data_ajr$GDP ~ data_ajr$Latitude + data_ajr$Exprop | data_ajr$Mort + data_ajr$Latitude )
-#store estimate, SE, and CI
-TSLS_beta <- summary(twosls_ajr_1_1)$coefficients[3,1]
-TSLS_se <- summary(twosls_ajr_1_1)$coefficients[3,2]
-min_ci_norm <- TSLS_beta - TSLS_se*1.96
-max_ci_norm <- TSLS_beta + TSLS_se*1.96
+OLS_est = c(OLS_beta, OLS_se)
 
-#Report estimates
-stargazer(OLS_ajr, twosls_ajr_1_1)
+# 2SLS model
+TSLS_mod = ivreg(GDP ~ Latitude + Exprop | Mort + Latitude, data = ajr)
 
-#2. Compute the AR statistic at a grid of values between 
-#   .10 and 2.25 and plot it in a figure 
+# store estimates
+TSLS_beta = summary(TSLS_mod)$coefficients[3,1]
+TSLS_se = summary(TSLS_mod)$coefficients[3,2]
 
-#Define sequence of betas 
-grid <- data.frame(cbind(matrix(seq(from = .10, to = 2.25, by = .01)),0,0))
-N <- length(grid$X1)
+TSLS_est = c(TSLS_beta, TSLS_se)
 
-#Define the AR statistic
-AR_calc <- function(Z,Y,X,beta) {
-  projection_matrix <-  Z %% solve(t(Z)%%Z)%*% t(Z) 
-  numerator <- t(Y - X*beta) %% projection_matrix %% (Y - X*beta)
-  denominator <- t(Y - X*beta) %*% (Y - X*beta)
-  AR_stat <- numerator/(denominator/64)
+part1_out = cbind(OLS_est, TSLS_est)
+
+# Report estimates
+stargazer(part1_out, out = "out/ajr_ols_tsls.tex")
+
+# AR statistic function
+AR_calc <- function(Z, Y, X, beta) {
+  n = length(Y)
+  
+  PZ <-  Z %*% solve(t(Z) %*% Z) %*% t(Z) 
+  num <- t(Y - X * beta) %*% PZ %*% (Y - X * beta)
+  denom <- t(Y - X * beta) %*% (Y - X * beta)
+  AR_stat <- num/(denom/n)
+  
   return(AR_stat)
 }
 
-#Calculate the AR stat at each value of beta
-for(n in c(1:N)) {
-  grid$X2[n] <- AR_calc(Z = data_ajr$Mort, Y = data_ajr$GDP, X = data_ajr$Exprop, beta=grid[n,1])
+# Setup grid
+ar_grid = seq(from = 0.10, to = 2.25, by = 0.01)
+
+# Calculate AR statistic on the grid
+ar_stat = rep(NA, length(ar_grid))
+for (i in 1:length(ar_grid)) {
+  ar_stat[i] = AR_calc(Z = ajr$Mort, Y = ajr$GDP, X = ajr$Exprop, beta = ar_grid[i])  
 }
 
-#plot AR stats
-plot(grid$X1, grid$X2, xlab = "betas", ylab = "Anderson-Rubin Statistics")
+grid_stat = as.data.frame(cbind(ar_grid, ar_stat))
 
-#Find AR confidence interval 
-cv <- 3.841
-grid$X3 <- ifelse(grid$X2<=cv,1,0)
-filtered_grid <- filter(grid, X3==1)
-min_ci <- min(filtered_grid$X1)
-max_ci <- max(filtered_grid$X1)
+# Plot AR stats
+ggplot(grid_stat, aes(x = ar_grid, y = ar_stat)) + 
+  geom_point() + 
+  theme_light() +
+  scale_x_continuous(name = "Beta") +
+  scale_y_continuous(name = "AR(Beta)")
+ggsave("out/ar_stats.png", width = 6, height = 3.6)
 
-#Compute AR Estimate and SEs
-AR_beta <- (max_ci + min_ci)/2
-AR_se <- (max_ci - min_ci)/(2*1.96)
+# In AR range
+grid_stat$not_rej = ifelse(grid_stat$ar_stat <= qchisq(0.95, 1), 1, 0)
 
-#3. Make tables to output 
-ajr_output_CIs <- data.frame(CI_95_pct = c("Lower Bound", "Upper Bound"),
-                             normal_approximation = c(min_ci_norm, max_ci_norm),
-                             Anderson_Rubin = c(min_ci, max_ci))
-xtable(t(ajr_output_CIs))
+non_rej_b = filter(grid_stat, not_rej == 1)
+ar_min = min(non_rej_b$ar_grid)
+ar_max = max(non_rej_b$ar_grid)
 
-ajr_output_ests <- data.frame(est = c("OLS", "2SLS", "AR"),
-                              estimate = c(OLS_beta,TSLS_beta,AR_beta),
-                              standard_errors = c(OLS_se,TSLS_se,AR_se))
-xtable(t(ajr_output_ests))
+# AR CI
+ar_center = (ar_min + ar_max) / 2
+ar_se = (ar_max - ar_min) / (2 * qnorm(0.975))
+
+# Calculate confidence intervals
+ar_ci = paste0("(", round(ar_min, 3), ", ", round(ar_max, 3), ")")
+tsls_ci = paste0("(", round(TSLS_beta - (qnorm(0.975) * TSLS_se), 3), ", ", round(TSLS_beta + (qnorm(0.975) * TSLS_se), 3), ")")
+ols_ci = paste0("(", round(OLS_beta - (qnorm(0.975) * OLS_se), 3), ", ", round(OLS_beta + (qnorm(0.975) * OLS_se), 3), ")")
+
+cis = c(ols_ci, tsls_ci, ar_ci)
+betas = c(round(OLS_beta, 3), round(TSLS_beta, 3), round(ar_center, 3))
+ses = c(round(OLS_se, 3), round(TSLS_se, 3), round(ar_se, 3))
+
+part3_out = cbind(betas, ses, cis)
+
+# Report estimates
+stargazer(part3_out, out = "out/confidence_intervals.tex")
